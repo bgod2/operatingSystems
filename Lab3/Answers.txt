@@ -1,0 +1,20 @@
+1.
+  a) The files: file3, file4, file5, and file6 are separate and unique
+     and file1, file2, file7, and file8 are not.
+  b) The number is the amount of links for that directory or file
+  c) It remains a 2
+  d) It becomes a 3
+
+2.
+  a) there is no indication that file has a symbolic link
+  b) there is no indication that the directory has a symbolic link
+  c) the link becomes distinct from evenything
+  d) it gives a warning that there is a cycle of symbolic links
+  
+3.
+  a) the link created is the same font as the original file.
+  b) when the permissions and time changed for the original file the 
+     hardlink also changed
+  c) there is no indication between the files to show that one is a hard link
+  d) the link becomes a different colour from everything, but is still displays the text when accessed
+  e) linking to a directory or nonexistant file fails

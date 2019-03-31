@@ -1,0 +1,55 @@
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <unistd.h>
+#include <pthread.h>
+
+
+#include "factory.h"
+
+
+#define BUFF pack->buffer
+
+//extern int DONE;
+
+
+
+
+
+void *assemble_func( void *pack_ ){
+  printf("assembler thread started\n");
+  
+  a_pack *pack = (a_pack *)pack_;
+  //c_buff *buff = pack->buffer; //
+  int N = pack->amount;
+  
+  
+  for(int i = 0; i < N; i++){
+    //start CS ****
+    //printf("a\n");
+    
+    pthread_mutex_lock( &mutex );
+
+    if(BUFF_COUNT == BUFF.length){
+      pthread_cond_wait( &can_produce, &mutex);
+    }
+
+    //make item
+    printf("make item %d\n",BUFF_COUNT);
+    strcpy( BUFF.head, pack->colour);
+    BUFF.head = BUFF.head + BUFF.item_size;
+    if( BUFF.head == BUFF.ptr_e ){   
+      BUFF.head = BUFF.ptr_s;                   
+    }
+    BUFF_COUNT++;
+    //item made
+    
+    
+    pthread_mutex_unlock(&mutex);
+    pthread_cond_signal(&can_consume);
+    //end CS ****
+  }
+  //free(pack);
+  printf("assembler finished\n");
+  pthread_exit(NULL);
+}

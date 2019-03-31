@@ -1,0 +1,193 @@
+#include <iostream>
+#include <fstream>
+#include <stdlib.h>
+#include <sys/wait.h>
+#include <sys/types.h>
+#include <sys/shm.h>
+#include <unistd.h>
+#include <vector>
+
+#define SHM_MODE 0600
+
+using namespace std;
+
+key_t key = 1234;
+int shmflg;
+int shmID;
+int size;
+
+
+
+void print_arr( int *arr, int n ){
+  cout << "[ ";
+  for( int i = 0; i < n; i++ ){
+    cout << arr[i] << " ";
+  }
+  cout << "]" << endl;
+}
+
+int *merge_sort( int arr[],  int n ){
+  pid_t c1_ID, c2_ID, c1_fin_ID, c2_fin_ID;
+  int status1, status2;
+  
+
+
+  //base case
+  if( n <= 1){
+    return arr;
+  }
+  
+  // int* ptr = (int*) shmat( shmID, 0, 0); // **?? attach proc to shmen
+  
+  //split
+  
+  int n_1 = n/2;
+  int n_2 = n_1 + n%2;
+  
+  int *left = arr;
+  int *right = (arr + n_1) ;
+  
+
+  //
+  if(( c1_ID = fork() ) == -1){
+    perror("fork error");
+    exit(EXIT_FAILURE);
+  } else if  (c1_ID == 0) {
+                                // child 1 process 
+                                // vvvvvvvvvv
+    /*                           
+      for( int i = 0; i < n_1; i++){
+      left[i] = arr[i]; 
+    }
+    */
+    int *left_s = merge_sort( left, n_1); 
+    
+    for(int i = 0; i < n_1; i++){
+      arr[i] = left_s[i];
+    }
+
+    exit(EXIT_SUCCESS);         // ^^^^^^^^
+                                //end of child 1
+  } else {
+    if(( c2_ID = fork() ) == -1){
+      perror("fork error");
+      exit(EXIT_FAILURE);
+    } else if (c2_ID ==0) {
+      int temp = 0;                 // child 2 process
+                                    // vvvvvvvvvvvvvv
+      /*
+	for( int i = n_1; i  < n; i++){
+	right[temp] = arr[i];
+	temp++;
+	}
+      */
+      int *right_s = merge_sort( right, n_2);
+      
+      temp = 0;
+      for( int i = n_1; i < n; i++){
+	arr[i] = right_s[temp];
+	temp++;
+      }
+      
+      exit(EXIT_SUCCESS);       // ^^^^^^^^^^^
+                                // end of child 2
+    } else {
+                                // parent process
+      c1_fin_ID = waitpid( c1_ID, &status1, WUNTRACED);
+      c2_fin_ID = waitpid( c2_ID, &status2, WUNTRACED);
+      
+      if( WIFEXITED( status1 ) && WIFEXITED( status2) ){
+	//both cildren finished
+	// rebuild
+	int i_1 = 0;
+	int i_2 = n_2;
+	int temp_arr[n];
+	// create temp array so values are kept
+	for( int i = 0; i < n; i++){
+	  temp_arr[i] = arr[i];
+	}
+	       
+
+	for( int i = 0; i < n; i++){
+	  if( i_1 == n_1 ){ // left empty
+	    arr[i] = temp_arr[i_2];
+	    i_2++;
+	    
+	  } else if( i_2 == n) { // right empty
+	    arr[i] = temp_arr[i_1];
+	    i_1++;
+	    
+	  } else if( temp_arr[i_1] < temp_arr[ i_2 ] ){
+	    arr[i] = temp_arr[i_1];
+	    i_1++;
+	    
+	  }else{
+	    arr[i] = temp_arr[i_2];
+	    i_2++;
+	  }
+	}
+	//
+      }
+      
+
+    }
+  }
+  
+  return arr;
+}
+
+
+int main(int argc, char* argv[]){
+  
+
+
+  
+  if( argc != 2){
+    cout << "function call needs to have a file name after call" 
+	 << endl;
+    cout << argc << endl;
+    return 0;
+  }
+  
+  int a;
+  vector<int> temp_arr;
+  ifstream infile( argv[1]);
+  
+  if(!infile) { 
+    cout << "error opening file" << argv[1] << endl;
+    return 0;
+  } 
+  int num = 0;
+  while( infile >> a ){
+    temp_arr.push_back(a);
+    num++;
+  }
+  size = num * sizeof(int);        // shget size
+  cout << "size " << size << endl;
+  
+  int arr[num];
+  for(int i = 0; i < num; i++){
+    arr[i] = temp_arr[i];
+  }
+
+
+  // create shared memory
+  
+
+
+  if( (shmID = shmget( key , num * sizeof(int) , SHM_MODE)) == -1){
+    perror("shmget error");
+  }
+  int* ptr = (int*) shmat( shmID, 0, 0);
+  
+  for(int i = 0; i < num; i++){
+    ptr[i] = arr[i];
+  }
+  
+
+  print_arr(arr, num);
+  int *sorted = merge_sort( arr,  num );
+  print_arr( sorted, num);
+  
+  return 0;
+}
